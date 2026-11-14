@@ -1,0 +1,9 @@
+services:
+  bitcoin-wallet:
+    build: .
+    container_name: bitcoin-wallet-sidecar
+    restart: unless-stopped
+    # Copy .env.example to .env and set XPUB. Never commit .env.
+    env_file: .env
+    ports:
+      - "8091:8091"   # LAN only: do not port-forward this on your router

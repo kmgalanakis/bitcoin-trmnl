@@ -1,7 +1,9 @@
-.superpowers/
-node_modules/
-test/out/
-*.zip
-service/.venv/
-__pycache__/
+.env
 stack.env
+extension.zip
+__pycache__/
+.venv/
+.DS_Store
+.superpowers/
+terminus/node_modules/
+terminus/test/out/

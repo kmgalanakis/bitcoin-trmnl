@@ -1,0 +1,8 @@
+.git
+.venv
+terminus
+docs
+*.zip
+.env
+stack.env
+__pycache__

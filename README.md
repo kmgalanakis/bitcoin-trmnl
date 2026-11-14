@@ -1,159 +1,156 @@
-# Bitcoin wallet for Terminus
+# Bitcoin wallet → TRMNL Terminus sidecar
 
-This repo holds a [Terminus](https://github.com/usetrmnl/terminus) extension that shows a Bitcoin wallet on an e-ink screen.
-It watches one public address, or a whole wallet through a small helper service, and adds general Bitcoin network stats.
-All data comes from [mempool.space](https://mempool.space/docs/api) and [CoinGecko](https://www.coingecko.com/en/api), which are free and need no API key.
+This repo shows a Bitcoin wallet on an e-ink screen through [Terminus](https://github.com/usetrmnl/terminus). It has two parts:
 
-The extension only reads public data. It never asks for a private key or a seed phrase, and it cannot move coins.
+- **The sidecar** (`app.py`) reads your wallet's extended public key (xpub), finds every address the wallet has used, and serves the total balance and recent transactions as JSON.
+- **The Terminus extension** (`terminus/`) renders that JSON as a screen, with the price, a 30-day chart and six Bitcoin network stats.
 
-Wallets like Ledger Live give you a new receive address for every payment, so one address shows only part of your coins, often none.
-To see the whole wallet, run the helper service in `service/`. See [Whole wallet (xpub)](#whole-wallet-xpub).
+Wallets like Ledger Live give you a new receive address for every payment, so one address shows only part of your coins, often none. The sidecar solves that.
+If you only want to watch one address, you can skip the sidecar. The extension can read a single address straight from mempool.space.
 
-The two extension files use Terminus's own export format, so Terminus can import them directly.
+Everything is read-only. The sidecar and the extension never ask for a private key or a seed phrase, and they cannot move coins.
 
-| File | Contents |
+## Contents
+
+| File | Purpose |
 | --- | --- |
-| `configuration.yml` | The extension settings, its form fields, the default data and the exchange. |
-| `template.html.liquid` | The Liquid template. |
+| `app.py` | The sidecar: address scan, transaction netting and the HTTP server |
+| `test_app.py` | Tests for the sidecar |
+| `requirements.txt` | Python dependencies: `embit`, pure Python |
+| `Dockerfile` | Image build |
+| `compose.yaml` | Docker Compose setup for a local run |
+| `compose.portainer.yaml` | Docker Compose setup for a Portainer stack |
+| `.env.example` | Template for your settings |
+| `terminus/` | The Terminus extension: template, settings and setup steps |
+| `docs/` | Design notes and plans |
 
-The `service/` folder and `compose.portainer.yaml` hold the optional wallet service. The `test/` folder, `package.json` and `docs/` are for development. Do not upload any of them to Terminus.
+## Requirements
 
-## What the screen shows
+- Docker, or Python 3.9 or newer.
+- A Bitcoin account with native SegWit addresses (`bc1q…`). This is the Ledger Live default.
+- A Terminus server on the same network.
 
-- The balance of the address in BTC or sats, and its value in your currency. Unconfirmed incoming coins count in the balance.
-- The current Bitcoin price and its change over 7 and 30 days.
-- A chart of the price over the last 30 days, with the high and low.
-- The two most recent transactions on the address, with the net amount and the date. An unconfirmed transaction shows "Pending".
-- Six network stats:
-  - recommended fees for fast, 30-minute and 1-hour confirmation, in sat/vB
-  - the current block height
-  - blocks left until the next halving, with an estimated month
-  - the expected change at the next difficulty adjustment, and the days left
-  - the network hashrate
-  - the number of unconfirmed transactions in the mempool
+## 1. Find your xpub
 
-When a data source fails, its section shows "—" and the rest of the screen still renders.
-The title bar shows the shortened address and the time of the last price update, so you can see when the data is stale.
-
-The layout adapts to the screen shape. In portrait the template stacks the sections and shows the stats in two columns.
-
-## How it works
-
-Terminus fetches the data through one exchange with eight addresses.
-Each response becomes a source that the template reads, in this order:
-
-| Source | Address | Used for |
-| --- | --- | --- |
-| `source_1` | `{api_base}/address/{address}` | Balance |
-| `source_2` | `{api_base}/address/{address}/txs` | Recent transactions |
-| `source_3` | `{api_base}/v1/prices` | Current price and update time |
-| `source_4` | `{api_base}/v1/difficulty-adjustment` | Difficulty change, block height and halving estimate |
-| `source_5` | `{api_base}/v1/mining/hashrate/3d` | Hashrate |
-| `source_6` | `{api_base}/v1/fees/recommended` | Fees |
-| `source_7` | `{api_base}/mempool` | Mempool size |
-| `source_8` | CoinGecko `coins/bitcoin/market_chart`, 30 days, daily | Chart and price changes |
-
-When one request fails, Terminus keeps that source's previous data.
-A script at the bottom of the template draws the screen in the browser that renders it.
-
-## Set it up
-
-1. Zip the two files. The zip must hold them at its top level, not inside a folder:
-
-   ```bash
-   zip extension.zip configuration.yml template.html.liquid
-   ```
-
-2. In Terminus, open **Extensions**, click **Upload**, and attach `extension.zip`. Terminus creates the extension with its fields, data and exchange.
-3. Open the new extension. Under **Data**, set `address` to your public Bitcoin address. The default is the genesis block address, which is only a placeholder.
-4. Under **Build Matrix**, choose **Models** and select your device's model. The export format does not include this setting.
-5. Save the extension, then click **Build**. Terminus renders a screen for each selected model.
-6. Open your device's playlist and add the new screen.
-
-## Whole wallet (xpub)
-
-The wallet service reads your account's extended public key (xpub), finds every address the account has used, and adds up the balance.
-It also nets each transaction against the whole wallet, so change sent back to your own addresses does not show as income.
-It supports one native SegWit account (`bc1q…` addresses), which is the Ledger Live default.
-
-An xpub cannot spend coins. It does reveal every address and transaction in the wallet, so treat it as private: keep it out of git, chats and screenshots.
-The service never logs it and never returns it.
-
-### Find your xpub in Ledger Live
+In Ledger Live:
 
 1. Open the account, for example **Bitcoin 1**.
 2. Click the wrench icon, then **Advanced**.
 3. Copy the value that starts with `xpub`.
 
-### Run the service on Portainer
+An xpub cannot spend coins. It does reveal every address and transaction in the wallet, so treat it as private: keep it out of git, chats and screenshots.
+The sidecar never logs it and never returns it.
+
+## 2. Configure
+
+Copy `.env.example` to `.env` and set `XPUB`:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `XPUB` | (required) | The account's xpub. A zpub also works. |
+| `API_BASE` | `https://mempool.space/api` | The mempool REST API. |
+| `GAP_LIMIT` | `20` | Stop each address chain after this many unused addresses in a row. |
+| `SCAN_SECONDS` | `600` | Seconds between background scans. |
+| `REQUEST_DELAY` | `0.5` | Seconds between API requests. |
+| `MAX_TXS` | `10` | Transactions in the response. |
+| `PORT` | `8091` | HTTP port. |
+
+`.env` is in `.gitignore`. Never commit it.
+
+## 3. Run the sidecar
+
+### With Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+The first scan takes about half a minute. Then check the result:
+
+```bash
+curl http://localhost:8091/wallet
+```
+
+### Without Docker
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+set -a && . ./.env && set +a && .venv/bin/python app.py
+```
+
+## 4. Add the Terminus extension
+
+Follow [terminus/README.md](terminus/README.md).
+
+## Deploy with Portainer
 
 1. In Portainer, open **Stacks** and click **Add stack**.
 2. Choose **Repository**. Use `https://github.com/kmgalanakis/bitcoin-trmnl` as the repository URL and `compose.portainer.yaml` as the compose path.
-3. Under **Environment variables**, add `XPUB` with your xpub. The other settings in `service/.env.example` have defaults.
+3. Under **Environment variables**, add `XPUB` with your xpub. The other settings have defaults.
 4. Deploy the stack. Portainer builds the image from the repo and starts `bitcoin-wallet-sidecar` on port 8091.
-5. Open `http://<server>:8091/wallet` in a browser. The first scan takes about half a minute. Until it finishes, the page answers with an error that says so.
 
-The service scans in the background every 10 minutes and spaces its requests, because mempool.space refuses requests that come too fast.
-`/wallet` always answers at once with the latest finished scan. When a scan fails, the last good scan stays in place.
+Portainer writes the stack's variables to `stack.env` at the root of its repo checkout. That is why `compose.portainer.yaml` stays at the repo root.
+The service has no image name, and `pull_policy: build` makes Portainer build from the repo on every deploy. With an image name, Portainer's **Re-pull image** would try to pull it from Docker Hub and fail.
 
-The image deletes embit's bundled compiled libraries, so the service runs pure Python. It works on CPUs without x86-64-v2.
+## API
 
-### Point the extension at the service
+### `GET /wallet`
 
-In Terminus, open the extension. Under **Data**, set `wallet_url` to the service address, for example `http://192.168.1.152:8091/wallet`, then save and build.
-The screen then shows the whole wallet, and the title bar shows how many addresses the wallet has used.
-To go back to one address, set `wallet_url` to an empty string.
-
-## Settings
-
-| Field | Default | Meaning |
-| --- | --- | --- |
-| `address` | the genesis block address | The public address to watch. |
-| `label` | `Bitcoin` | Name shown in the title bar. |
-| `currency` | `EUR` | `EUR`, `USD`, `GBP`, `CAD`, `CHF`, `AUD` or `JPY`. |
-| `unit` | `BTC` | `BTC` or `sats`. |
-| `locale` | `en-GB` | Language for numbers and dates, such as `el-GR`. |
-| `timezone` | `Europe/Athens` | Time zone for dates and the update time. |
-| `api_base` | `https://mempool.space/api` | The mempool API to use. |
-| `wallet_url` | empty | The wallet service's `/wallet` address. When set, it replaces `address`. |
-
-## Privacy
-
-mempool.space sees which address your server asks about, and from which IP address.
-In wallet mode it sees all your addresses asked about from one IP address, so it can link them.
-To keep the addresses private, run your own [mempool](https://github.com/mempool/mempool) server. Set `api_base` in the extension and `API_BASE` in the service to its API, for example `http://umbrel.local:3006/api`.
-The CoinGecko request does not include your address.
-
-## Develop
-
-The tests load the script from the template and check the data functions and the screen markup:
-
-```bash
-npm install
-npm test
+```json
+{
+  "balance_sats": 123456789,
+  "pending_sats": 50000,
+  "tx_count": 5,
+  "addresses_used": 7,
+  "txs": [
+    {"sats": 50000, "time": null, "confirmed": false},
+    {"sats": -31000, "time": 1794000000, "confirmed": true}
+  ],
+  "updated": 1794650000
+}
 ```
 
-`npm run render` fills the template with the saved responses in `test/fixtures/` and saves screenshots in `test/out/`.
-Set `SCENARIO=empty` to render the screen with no data, or `SCENARIO=wallet` for wallet mode.
+- `balance_sats` holds confirmed plus unconfirmed funds. `pending_sats` is the unconfirmed part alone.
+- Each row in `txs` is the transaction's net effect on the whole wallet, in sats. Unconfirmed transactions come first, then the rest, newest first.
+- Before the first scan finishes, or when the xpub is missing or invalid, the answer is HTTP 502 with `{"error": "..."}`.
 
-The wallet service has its own tests. They use the public BIP84 test vector key, never a real xpub:
+### `GET /health`
+
+Returns `{"ok": true}`.
+
+## How it works
+
+1. The sidecar derives the account's native SegWit addresses on the receive chain (`0/i`) and the change chain (`1/i`).
+2. It asks mempool.space about each address and stops a chain after 20 unused addresses in a row. Ledger uses the same gap limit.
+3. For each used address it reads the recent transactions and merges them by transaction ID.
+4. It nets each transaction against all wallet addresses. Change sent back to the wallet therefore does not count as income, and a transfer between your own addresses shows only the fee.
+
+The sidecar scans in a background thread every 10 minutes, so `/wallet` answers at once with the latest finished scan.
+It waits half a second between requests and retries a "429 Too Many Requests" answer after 5, 10, 20 and 40 seconds, because mempool.space refuses requests that come too fast.
+When a scan fails, the last good scan stays in place.
+
+The image deletes embit's bundled compiled libraries, so the sidecar runs pure Python. It works on CPUs without x86-64-v2.
+
+## Tests
+
+The tests use the public BIP84 test vector key, never a real xpub:
 
 ```bash
-python3 -m venv service/.venv
-service/.venv/bin/pip install -r service/requirements.txt
-service/.venv/bin/python -m unittest -v service/test_app.py
+.venv/bin/python -m unittest -v test_app.py
 ```
-If Playwright reports a missing browser, run `npx playwright install chromium`, or point `CHROMIUM` at a Chromium you already have.
 
-## Keep the copies in sync
+The extension has its own tests. See [terminus/README.md](terminus/README.md#develop).
 
-Terminus stores the live copy of the extension.
-When you change the extension in Terminus, click its **Download** link on the **Extensions** page and unzip the export over the two files.
-The export saves the template with Windows line endings. Convert it to Unix line endings before you commit:
+## Security
 
-```bash
-tr -d '\r' < template.html.liquid > t && mv t template.html.liquid
-```
+- The sidecar has no login. Publish port 8091 on your LAN only, and never port-forward it on your router.
+- The xpub lives only in `.env` or in Portainer's stack settings.
+- mempool.space sees all your addresses asked about from one IP address, so it can link them. To avoid that, run your own [mempool](https://github.com/mempool/mempool) server and set `API_BASE` to its API, for example `http://umbrel.local:3006/api`.
 
 ## License
 

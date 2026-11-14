@@ -1,4 +1,4 @@
-"""Tests for the wallet service. Run: service/.venv/bin/python -m unittest -v service/test_app.py"""
+"""Tests for the wallet service. Run: .venv/bin/python -m unittest -v test_app.py"""
 import os
 import sys
 import unittest
