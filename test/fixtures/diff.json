@@ -1,0 +1,14 @@
+{
+ "progressPercent": 1.8353174603174605,
+ "difficultyChange": -6.35733641173829,
+ "estimatedRetargetDate": 1795922601853,
+ "remainingBlocks": 1979,
+ "remainingTime": 1270531853,
+ "previousRetarget": -9.126656385443539,
+ "previousTime": 1794632570,
+ "nextRetargetHeight": 977760,
+ "timeAvg": 527027,
+ "adjustedTimeAvg": 642007,
+ "timeOffset": 0,
+ "expectedBlocks": 32.5
+}

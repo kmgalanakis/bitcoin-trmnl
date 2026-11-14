@@ -1,0 +1,71 @@
+<script>
+{% raw %}
+/* mempool.space + CoinGecko → TRMNL Bitcoin screen. Runs inside the Terminus screen renderer (Chromium). */
+var BTC = (function () {
+  var SATS = 100000000;
+  var HALVING_BLOCKS = 210000;
+
+  function num(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
+
+  // ---------- data ----------
+  function balanceSats(addr) {
+    if (!addr || !addr.chain_stats) return null;
+    var c = addr.chain_stats, m = addr.mempool_stats || {};
+    return (c.funded_txo_sum - c.spent_txo_sum) + ((m.funded_txo_sum || 0) - (m.spent_txo_sum || 0));
+  }
+
+  function txNet(tx, address) {
+    var sats = 0;
+    (tx.vout || []).forEach(function (o) { if (o.scriptpubkey_address === address) sats += o.value; });
+    (tx.vin || []).forEach(function (i) { if (i.prevout && i.prevout.scriptpubkey_address === address) sats -= i.prevout.value; });
+    var confirmed = !!(tx.status && tx.status.confirmed);
+    return { sats: sats, time: confirmed ? tx.status.block_time : null, confirmed: confirmed };
+  }
+
+  function recentTxs(txs, address, n) {
+    if (!Array.isArray(txs)) return [];
+    return txs.slice(0, n).map(function (tx) { return txNet(tx, address); });
+  }
+
+  function blockHeight(diff) {
+    if (!diff || num(diff.nextRetargetHeight) == null || num(diff.remainingBlocks) == null) return null;
+    return diff.nextRetargetHeight - diff.remainingBlocks;
+  }
+
+  function halving(height, avgBlockMs) {
+    if (num(height) == null) return null;
+    var next = (Math.floor(height / HALVING_BLOCKS) + 1) * HALVING_BLOCKS;
+    var blocks = next - height;
+    return { blocks: blocks, date: new Date(Date.now() + blocks * (num(avgBlockMs) || 600000)) };
+  }
+
+  function priceChange(series, days) {
+    if (!Array.isArray(series) || series.length <= days) return null;
+    var last = series[series.length - 1][1], then = series[series.length - 1 - days][1];
+    if (!then) return null;
+    return Math.round((last - then) / then * 10000) / 100;
+  }
+
+  // ---------- formatting ----------
+  function fmtAmount(sats, unit, locale) {
+    if (num(sats) == null) return '—';
+    if (unit === 'sats') return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(sats) + ' sats';
+    return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 8 }).format(sats / SATS) + ' BTC';
+  }
+
+  function fmtHashrate(hps) {
+    if (num(hps) == null) return '—';
+    var unit = hps >= 1e21 ? ['ZH/s', 1e21] : ['EH/s', 1e18];
+    var v = hps / unit[1];
+    return (v < 10 ? v.toFixed(1) : String(Math.round(v))) + ' ' + unit[0];
+  }
+
+  return {
+    balanceSats: balanceSats, txNet: txNet, recentTxs: recentTxs, blockHeight: blockHeight,
+    halving: halving, priceChange: priceChange, fmtAmount: fmtAmount, fmtHashrate: fmtHashrate
+  };
+})();
+
+if (typeof module !== 'undefined') module.exports = BTC;
+{% endraw %}
+</script>

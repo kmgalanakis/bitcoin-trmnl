@@ -1,0 +1,1 @@
+{"txid":"p1","vin":[{"prevout":{"scriptpubkey_address":"bc1qother","value":60000}}],"vout":[{"scriptpubkey_address":"bc1qtestaddress0000000000000000000000000","value":50000}],"status":{"confirmed":false}}
