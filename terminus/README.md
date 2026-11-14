@@ -78,7 +78,7 @@ A script at the bottom of the template draws the screen in the browser that rend
 | `wallet_url` | empty | The sidecar's `/wallet` address. When set, it replaces `address`. |
 | `address` | the genesis block address | The public address to watch in single-address mode. |
 | `label` | `Bitcoin` | Name shown in the title bar. |
-| `currency` | `EUR` | `EUR`, `USD`, `GBP`, `CAD`, `CHF`, `AUD` or `JPY`. |
+| `currency` | `USD` | `USD`, `EUR`, `GBP`, `CAD`, `CHF`, `AUD` or `JPY`. Sets the currency for the balance value, the price and the chart. |
 | `unit` | `BTC` | `BTC` or `sats`. |
 | `locale` | `en-GB` | Language for numbers and dates, such as `el-GR`. |
 | `timezone` | `Europe/Athens` | Time zone for dates and the update time. |

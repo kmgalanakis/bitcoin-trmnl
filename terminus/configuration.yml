@@ -23,11 +23,11 @@ fields:
   field_type: string
   description: Shown in the title bar.
 - name: Currency
-  default: EUR
+  default: USD
   keyname: currency
   options:
-  - EUR
   - USD
+  - EUR
   - GBP
   - CAD
   - CHF
@@ -68,7 +68,7 @@ data:
     locale: en-GB
     address: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
     api_base: https://mempool.space/api
-    currency: EUR
+    currency: USD
     timezone: Europe/Athens
     wallet_url: ''
 interval: 15

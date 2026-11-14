@@ -196,7 +196,7 @@ var BTC = (function () {
 
   // sources: {addr, txs, prices, diff, hash, fees, mempool, chart}; opts: {address, currency, unit, locale, timezone}
   function render(root, sources, opts) {
-    var s = sources || {}, locale = opts.locale || 'en-GB', currency = (opts.currency || 'EUR').toUpperCase();
+    var s = sources || {}, locale = opts.locale || 'en-GB', currency = (opts.currency || 'USD').toUpperCase();
     var unit = opts.unit === 'sats' ? 'sats' : 'BTC', tz = opts.timezone;
 
     var sats = balanceSats(s.addr);
@@ -278,7 +278,7 @@ if (typeof module !== 'undefined') module.exports = BTC;
       hash: read('hash'), fees: read('fees'), mempool: read('mempool'), chart: read('chart')
     }, {
       address: {{ extension.values.address | jsonify }},
-      currency: {{ extension.values.currency | default: "EUR" | jsonify }},
+      currency: {{ extension.values.currency | default: "USD" | jsonify }},
       unit: {{ extension.values.unit | default: "BTC" | jsonify }},
       locale: {{ extension.values.locale | default: "en-GB" | jsonify }},
       timezone: {{ extension.values.timezone | default: "UTC" | jsonify }}

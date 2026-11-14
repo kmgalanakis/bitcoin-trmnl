@@ -149,3 +149,11 @@ test('render keeps single-address mode when the wallet URL is not used', () => {
   const result = BTC.render(root, { addr: fixture('addr'), txs: fixture('txs') }, OPTS);
   assert.equal(result.address, '1A1zP1…vfNa');
 });
+
+test('render defaults to US dollars when no currency is set', () => {
+  const root = { innerHTML: '' };
+  const { currency, ...noCurrency } = OPTS;
+  BTC.render(root, { addr: fixture('addr'), prices: fixture('prices') }, noCurrency);
+  const usd = fixture('prices').USD.toLocaleString('en-GB');
+  assert.match(root.innerHTML, new RegExp('US\\$' + usd + '|\\$' + usd));
+});
