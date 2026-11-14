@@ -16,7 +16,7 @@ The two extension files use Terminus's own export format, so Terminus can import
 | `configuration.yml` | The extension settings, its form fields, the default data and the exchange. |
 | `template.html.liquid` | The Liquid template. |
 
-The `service/` folder holds the optional wallet service. The `test/` folder, `package.json` and `docs/` are for development. Do not upload any of them to Terminus.
+The `service/` folder and `compose.portainer.yaml` hold the optional wallet service. The `test/` folder, `package.json` and `docs/` are for development. Do not upload any of them to Terminus.
 
 ## What the screen shows
 
@@ -88,7 +88,7 @@ The service never logs it and never returns it.
 ### Run the service on Portainer
 
 1. In Portainer, open **Stacks** and click **Add stack**.
-2. Choose **Repository**. Use `https://github.com/kmgalanakis/bitcoin-trmnl` as the repository URL and `service/compose.portainer.yaml` as the compose path.
+2. Choose **Repository**. Use `https://github.com/kmgalanakis/bitcoin-trmnl` as the repository URL and `compose.portainer.yaml` as the compose path.
 3. Under **Environment variables**, add `XPUB` with your xpub. The other settings in `service/.env.example` have defaults.
 4. Deploy the stack. Portainer builds the image from the repo and starts `bitcoin-wallet-sidecar` on port 8091.
 5. Open `http://<server>:8091/wallet` in a browser. The first scan takes about half a minute. Until it finishes, the page answers with an error that says so.

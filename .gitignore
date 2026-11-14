@@ -4,3 +4,4 @@ test/out/
 *.zip
 service/.venv/
 __pycache__/
+stack.env

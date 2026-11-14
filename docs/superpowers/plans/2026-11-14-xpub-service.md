@@ -43,7 +43,7 @@
 
 ### Task 2: Container and stack
 
-**Files:** Create `service/Dockerfile`, `service/requirements.txt` (`embit==0.8.0`), `service/compose.portainer.yaml` (container `bitcoin-wallet-sidecar`, `ports: "8091:8091"`) and `service/.env.example`.
+**Files:** Create `service/Dockerfile`, `service/requirements.txt` (`embit==0.8.0`), `compose.portainer.yaml` at the repo root, since Portainer writes `stack.env` there (container `bitcoin-wallet-sidecar`, `ports: "8091:8091"`) and `service/.env.example`.
 
 - [ ] Build with `docker build --platform linux/amd64 -t btc-wallet-test service/`. Then run the tests and a backend check inside it. Expected: the tests pass, and `embit.util.secp256k1` reports the pure-Python module (`py_secp256k1`).
 - [ ] Run the container with the BIP84 zpub and call `curl localhost:8091/wallet`. Expected: JSON with `addresses_used` above 0, and no zpub in the body. Commit with "Add the Docker setup for the wallet service".
