@@ -69,3 +69,52 @@ test('fmtHashrate picks EH/s or ZH/s', () => {
   assert.equal(BTC.fmtHashrate(1.2e21), '1.2 ZH/s');
   assert.equal(BTC.fmtHashrate(undefined), '—');
 });
+
+const ALL = () => ({
+  addr: fixture('addr'), txs: fixture('txs'), prices: fixture('prices'), diff: fixture('diff'),
+  hash: fixture('hash'), fees: fixture('fees'), mempool: fixture('mempool'), chart: fixture('chart')
+});
+const OPTS = { address: GENESIS, currency: 'EUR', unit: 'BTC', locale: 'en-GB' };
+
+test('render fills every section', () => {
+  const root = { innerHTML: '' };
+  const s = ALL();
+  const result = BTC.render(root, s, OPTS);
+  const html = root.innerHTML;
+  assert.match(html.replace(/<[^>]+>/g, ''), /57\.7120998 BTC/);
+  assert.match(html, new RegExp(BTC.blockHeight(s.diff).toLocaleString('en-GB')));
+  assert.match(html, new RegExp(BTC.fmtHashrate(s.hash.currentHashrate).replace('/', '\\/')));
+  assert.match(html, /<polyline/);
+  assert.equal((html.match(/class="btc-tx"/g) || []).length, 2);
+  assert.match(result.updated, /^\d{2}:\d{2}$/);
+});
+
+test('render survives missing sources', () => {
+  const root = { innerHTML: '' };
+  const result = BTC.render(root, {}, OPTS);
+  assert.match(root.innerHTML, /Address unavailable/);
+  assert.match(root.innerHTML, /—/);
+  assert.doesNotMatch(root.innerHTML, /<polyline/);
+  assert.equal(result.updated, '');
+});
+
+test('render treats error objects like missing data', () => {
+  const root = { innerHTML: '' };
+  const err = { error: 'Bad fetch' };
+  BTC.render(root, { addr: err, txs: err, prices: err, diff: err, hash: err, fees: err, mempool: err, chart: err }, OPTS);
+  assert.match(root.innerHTML, /Address unavailable/);
+});
+
+test('render shows an empty wallet', () => {
+  const root = { innerHTML: '' };
+  BTC.render(root, { addr: fixture('addr-empty'), txs: [] }, { ...OPTS, address: TEST_ADDR });
+  assert.match(root.innerHTML.replace(/<[^>]+>/g, ''), /0\.00 BTC/);
+  assert.match(root.innerHTML, /No transactions yet/);
+});
+
+test('render marks a pending transaction', () => {
+  const root = { innerHTML: '' };
+  BTC.render(root, { addr: fixture('addr-pending'), txs: [fixture('tx-pending')] }, { ...OPTS, address: TEST_ADDR });
+  assert.match(root.innerHTML, /\+0\.0005 BTC/);
+  assert.match(root.innerHTML, /pending/i);
+});

@@ -1,3 +1,83 @@
+{%- comment -%}
+  Bitcoin wallet (mempool.space + CoinGecko). Liquid hands the API responses to the page; the script draws the screen.
+{%- endcomment -%}
+<div class="{{ extension.css_classes }}">
+  <script>(function(){var r=document.currentScript.parentNode;if(window.innerHeight>window.innerWidth){r.classList.add("btc-portrait");}})();</script>
+  <div class="view view--full">
+    <style>
+      .btc { display: flex; flex-direction: column; gap: 10px; width: 100%; height: 100%;
+             font-family: var(--framework-typeface, "Inter Variable", "Inter", "Helvetica Neue", Arial, sans-serif); }
+      .btc-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+      .btc-sub { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      .btc-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+      .btc-wallet { display: flex; flex-direction: column; min-width: 0; }
+      .btc-balance { font-size: 50px; font-weight: 700; letter-spacing: -2px; line-height: 1; white-space: nowrap; }
+      .btc-balance small { font-size: 24px; letter-spacing: 0; }
+      .btc-fiat { font-size: 22px; font-weight: 600; margin-top: 4px; white-space: nowrap; }
+      .btc-price { display: flex; flex-direction: column; align-items: flex-end; text-align: right; flex-shrink: 0; }
+      .btc-price__value { font-size: 28px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+      .btc-price__change { display: flex; gap: 10px; font-size: 13px; white-space: nowrap; }
+      .btc-price__change b { font-weight: 800; }
+
+      .btc-stats { display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 8px;
+                   border-top: 2px solid black; border-bottom: 2px solid black; padding: 7px 0; }
+      .btc-stat { display: flex; flex-direction: column; gap: 1px; padding: 0 10px; border-left: 1px solid #9a9a9a; line-height: 1.1; min-width: 0; }
+      .btc-stat:nth-child(3n+1) { border-left: 0; padding-left: 0; }
+      .btc-stat__value { font-size: 21px; font-weight: 700; white-space: nowrap; }
+      .btc-stat__value small { font-size: 12px; font-weight: 600; }
+
+      .btc-bottom { display: flex; gap: 14px; flex: 1; min-height: 0; }
+      .btc-chart { display: flex; flex-direction: column; flex: 1.6; min-width: 0; min-height: 0; }
+      .btc-chart__head { display: flex; justify-content: space-between; align-items: baseline; }
+      .btc-chart__plot { position: relative; display: flex; flex: 1; min-height: 0; margin-top: 3px; }
+      .btc-chart__plot svg { position: absolute; top: 0; bottom: 0; left: 0; right: 58px; width: calc(100% - 58px); height: 100%; }
+      .btc-chart__range { position: absolute; right: 0; font-size: 11px; }
+      .btc-chart__range--hi { top: 0; }
+      .btc-chart__range--lo { bottom: 0; }
+      .btc-txs { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; padding-left: 12px; border-left: 2px solid black; }
+      .btc-tx { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+      .btc-tx__amount { font-size: 17px; font-weight: 700; white-space: nowrap; }
+      .btc-tx__meta { font-size: 12px; white-space: nowrap; text-align: right; }
+      .btc-tx__meta--pending { font-weight: 800; text-transform: uppercase; }
+
+      .btc-empty { display: flex; flex: 1; align-items: center; justify-content: center; font-size: 14px; }
+      .btc-error { display: flex; flex: 1; flex-direction: column; gap: 6px; align-items: center; justify-content: center; text-align: center; }
+
+      /* ---------- portrait (model rotation 90/270 → 480×800) ---------- */
+      .btc-portrait .btc { gap: 14px; }
+      .btc-portrait .btc-hero { flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+      .btc-portrait .btc-wallet { align-items: center; }
+      .btc-portrait .btc-balance { font-size: 46px; }
+      .btc-portrait .btc-price { align-items: center; text-align: center; }
+      .btc-portrait .btc-stats { grid-template-columns: repeat(2, 1fr); row-gap: 12px; padding: 10px 0; }
+      .btc-portrait .btc-stat:nth-child(3n+1) { border-left: 1px solid #9a9a9a; padding-left: 10px; }
+      .btc-portrait .btc-stat:nth-child(2n+1) { border-left: 0; padding-left: 0; }
+      .btc-portrait .btc-bottom { flex-direction: column; gap: 14px; }
+      .btc-portrait .btc-chart { flex: 1; min-height: 160px; }
+      .btc-portrait .btc-txs { flex: none; padding-left: 0; border-left: 0; border-top: 2px solid black; padding-top: 10px; }
+    </style>
+
+    <div class="layout layout--col layout--top layout--left" id="btc-root">
+      <div class="btc-error"><span class="title">Loading Bitcoin…</span></div>
+    </div>
+
+    <div class="title_bar">
+      <span class="title">{{ extension.values.label | default: "Bitcoin" | escape }}</span>
+      <span class="instance" id="btc-updated"></span>
+    </div>
+  </div>
+</div>
+
+<div id="btc-data" hidden
+     data-addr="{{ source_1 | jsonify | escape }}"
+     data-txs="{{ source_2 | jsonify | escape }}"
+     data-prices="{{ source_3 | jsonify | escape }}"
+     data-diff="{{ source_4 | jsonify | escape }}"
+     data-hash="{{ source_5 | jsonify | escape }}"
+     data-fees="{{ source_6 | jsonify | escape }}"
+     data-mempool="{{ source_7 | jsonify | escape }}"
+     data-chart="{{ source_8 | jsonify | escape }}"></div>
 <script>
 {% raw %}
 /* mempool.space + CoinGecko → TRMNL Bitcoin screen. Runs inside the Terminus screen renderer (Chromium). */
@@ -60,12 +140,146 @@ var BTC = (function () {
     return (v < 10 ? v.toFixed(1) : String(Math.round(v))) + ' ' + unit[0];
   }
 
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+  function grouped(v, locale, digits) {
+    return num(v) == null ? '—' : new Intl.NumberFormat(locale, { maximumFractionDigits: digits || 0 }).format(v);
+  }
+  function money(v, currency, locale) {
+    if (num(v) == null) return '—';
+    try { return new Intl.NumberFormat(locale, { style: 'currency', currency: currency, maximumFractionDigits: 0 }).format(v); }
+    catch (e) { return grouped(v, locale) + ' ' + currency; }
+  }
+  function signed(v, text) { return (v > 0 ? '+' : v < 0 ? '−' : '') + text; }
+  function pct(v) { return num(v) == null ? '—' : signed(v, Math.abs(v).toFixed(1) + '%'); }
+  function date(ms, locale, tz, fmt) {
+    try { return new Date(ms).toLocaleDateString(locale, Object.assign({ timeZone: tz }, fmt)); }
+    catch (e) { return new Date(ms).toLocaleDateString(locale, fmt); }
+  }
+  function clock(ms, tz) {
+    var o = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+    try { return new Date(ms).toLocaleTimeString('en-GB', Object.assign({ timeZone: tz }, o)); }
+    catch (e) { return new Date(ms).toLocaleTimeString('en-GB', o); }
+  }
+  function duration(ms) {
+    if (num(ms) == null) return '';
+    var days = ms / 86400000;
+    return days >= 1 ? 'in ' + Math.round(days) + ' days' : 'in ' + Math.max(1, Math.round(ms / 3600000)) + ' h';
+  }
+
+  function stat(label, value, sub) {
+    return '<div class="btc-stat"><span class="btc-label">' + label + '</span><span class="btc-stat__value">' + value + '</span>' +
+      '<span class="btc-sub">' + (sub || '&nbsp;') + '</span></div>';
+  }
+
+  function chart(series, currency, locale) {
+    if (!Array.isArray(series) || series.length < 2) return '<div class="btc-empty">Price history unavailable</div>';
+    var values = series.map(function (p) { return p[1]; });
+    var lo = Math.min.apply(null, values), hi = Math.max.apply(null, values), span = hi - lo || 1;
+    var W = 300, H = 100;
+    var points = values.map(function (v, i) {
+      return (i / (values.length - 1) * W).toFixed(1) + ',' + (H - 4 - (v - lo) / span * (H - 8)).toFixed(1);
+    }).join(' ');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      '<polyline points="' + points + '" fill="none" stroke="black" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>' +
+      '<span class="btc-chart__range btc-chart__range--hi">' + money(hi, currency, locale) + '</span>' +
+      '<span class="btc-chart__range btc-chart__range--lo">' + money(lo, currency, locale) + '</span>';
+  }
+
+  // sources: {addr, txs, prices, diff, hash, fees, mempool, chart}; opts: {address, currency, unit, locale, timezone}
+  function render(root, sources, opts) {
+    var s = sources || {}, locale = opts.locale || 'en-GB', currency = (opts.currency || 'EUR').toUpperCase();
+    var unit = opts.unit === 'sats' ? 'sats' : 'BTC', tz = opts.timezone;
+
+    var sats = balanceSats(s.addr);
+    var price = s.prices && num(s.prices[currency]);
+    var series = s.chart && s.chart.prices;
+    var height = blockHeight(s.diff);
+    var half = halving(height, s.diff && s.diff.timeAvg);
+    var fees = s.fees && num(s.fees.fastestFee) != null ? s.fees : null;
+    var pool = s.mempool && num(s.mempool.count) != null ? s.mempool : null;
+    var diffChange = s.diff ? num(s.diff.difficultyChange) : null;
+
+    var balanceHtml = sats == null
+      ? '<span class="btc-balance"><small>Address unavailable</small></span><span class="btc-fiat">—</span>'
+      : '<span class="btc-balance">' + esc(fmtAmount(sats, unit, locale)).replace(/ (BTC|sats)$/, ' <small>$1</small>') + '</span>' +
+        '<span class="btc-fiat">' + (price == null ? '—' : money(sats / SATS * price, currency, locale)) + '</span>';
+
+    var txs = recentTxs(s.txs, opts.address, 2);
+    var txHtml = !Array.isArray(s.txs) ? '<div class="btc-empty">—</div>'
+      : !txs.length ? '<div class="btc-empty">No transactions yet</div>'
+      : txs.map(function (t) {
+          var meta = t.confirmed ? date(t.time * 1000, locale, tz, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Pending';
+          return '<div class="btc-tx"><span class="btc-tx__amount">' + signed(t.sats, esc(fmtAmount(Math.abs(t.sats), unit, locale))) + '</span>' +
+            '<span class="btc-tx__meta' + (t.confirmed ? '' : ' btc-tx__meta--pending') + '">' + esc(meta) + '</span></div>';
+        }).join('');
+
+    root.innerHTML =
+      '<div class="btc">' +
+        '<div class="btc-hero">' +
+          '<div class="btc-wallet"><span class="btc-label">Balance</span>' + balanceHtml + '</div>' +
+          '<div class="btc-price"><span class="btc-label">BTC price</span>' +
+            '<span class="btc-price__value">' + money(price, currency, locale) + '</span>' +
+            '<span class="btc-price__change"><span>7d <b>' + pct(priceChange(series, 7)) + '</b></span>' +
+            '<span>30d <b>' + pct(priceChange(series, 30)) + '</b></span></span></div>' +
+        '</div>' +
+        '<div class="btc-stats">' +
+          stat('Fees', fees ? fees.fastestFee + ' · ' + fees.halfHourFee + ' · ' + fees.hourFee + ' <small>sat/vB</small>' : '—', fees ? 'fast · 30 min · 1 hour' : '') +
+          stat('Block', grouped(height, locale), height == null ? '' : 'current height') +
+          stat('Halving', half ? grouped(half.blocks, locale) + ' <small>blocks</small>' : '—',
+               half ? 'about ' + esc(date(half.date.getTime(), locale, tz, { month: 'short', year: 'numeric' })) : '') +
+          stat('Difficulty', pct(diffChange), diffChange == null ? '' : duration(s.diff.remainingTime)) +
+          stat('Hashrate', fmtHashrate(s.hash && s.hash.currentHashrate), s.hash && s.hash.currentHashrate ? '3-day average' : '') +
+          stat('Mempool', pool ? grouped(pool.count, locale) + ' <small>tx</small>' : '—',
+               pool && num(pool.vsize) != null ? grouped(pool.vsize / 1e6, locale, 1) + ' MvB unconfirmed' : '') +
+        '</div>' +
+        '<div class="btc-bottom">' +
+          '<div class="btc-chart"><div class="btc-chart__head"><span class="btc-label">30-day price</span></div>' +
+            '<div class="btc-chart__plot">' + chart(series, currency, locale) + '</div></div>' +
+          '<div class="btc-txs"><span class="btc-label">Recent transactions</span>' + txHtml + '</div>' +
+        '</div>' +
+      '</div>';
+
+    var address = String(opts.address || '');
+    var short = address.length > 14 ? address.slice(0, 6) + '…' + address.slice(-4) : address;
+    var updatedAt = s.prices && num(s.prices.time) != null ? clock(s.prices.time * 1000, tz) : '';
+    return { updated: updatedAt, address: short };
+  }
+
   return {
     balanceSats: balanceSats, txNet: txNet, recentTxs: recentTxs, blockHeight: blockHeight,
-    halving: halving, priceChange: priceChange, fmtAmount: fmtAmount, fmtHashrate: fmtHashrate
+    halving: halving, priceChange: priceChange, fmtAmount: fmtAmount, fmtHashrate: fmtHashrate,
+    render: render
   };
 })();
 
 if (typeof module !== 'undefined') module.exports = BTC;
 {% endraw %}
+
+(function () {
+  var root = document.getElementById('btc-root');
+  var el = document.getElementById('btc-data');
+  var read = function (name) {
+    try { var v = JSON.parse(el.getAttribute('data-' + name) || 'null'); return v && !v.error ? v : null; }
+    catch (e) { return null; }
+  };
+  try {
+    var result = BTC.render(root, {
+      addr: read('addr'), txs: read('txs'), prices: read('prices'), diff: read('diff'),
+      hash: read('hash'), fees: read('fees'), mempool: read('mempool'), chart: read('chart')
+    }, {
+      address: {{ extension.values.address | jsonify }},
+      currency: {{ extension.values.currency | default: "EUR" | jsonify }},
+      unit: {{ extension.values.unit | default: "BTC" | jsonify }},
+      locale: {{ extension.values.locale | default: "en-GB" | jsonify }},
+      timezone: {{ extension.values.timezone | default: "UTC" | jsonify }}
+    });
+    document.getElementById('btc-updated').textContent =
+      result.address + (result.updated ? ' · Updated ' + result.updated : '');
+  } catch (error) {
+    root.innerHTML = '<div class="btc-error"><span class="title">Bitcoin data unavailable</span><span class="description"></span></div>';
+    root.querySelector('.description').textContent = error && error.message;
+  }
+})();
 </script>

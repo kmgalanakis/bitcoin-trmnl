@@ -1,0 +1,13 @@
+{
+  "name": "bitcoin-trmnl",
+  "private": true,
+  "description": "Test tools for the Bitcoin Terminus extension. Not part of the upload.",
+  "scripts": {
+    "test": "node --test 'test/*.test.js'",
+    "render": "node test/render.mjs"
+  },
+  "devDependencies": {
+    "liquidjs": "^10.21.0",
+    "playwright": "^1.56.0"
+  }
+}

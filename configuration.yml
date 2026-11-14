@@ -1,0 +1,82 @@
+---
+version: 0.80.0
+name: bitcoin_wallet
+label: Bitcoin
+description: Balance of one public Bitcoin address, the price with a 30-day chart, recent transactions
+  and network stats (fees, block height, halving, difficulty, hashrate, mempool) from mempool.space
+  and CoinGecko (free, no API key).
+mode: text
+kind: poll
+tags:
+- bitcoin
+- crypto
+static_body:
+fields:
+- name: Bitcoin address
+  default: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+  keyname: address
+  field_type: string
+  description: A public address only. Never enter a private key or seed phrase.
+- name: Wallet label
+  default: Bitcoin
+  keyname: label
+  field_type: string
+  description: Shown in the title bar.
+- name: Currency
+  default: EUR
+  keyname: currency
+  options:
+  - EUR
+  - USD
+  - GBP
+  - CAD
+  - CHF
+  - AUD
+  - JPY
+  field_type: select
+- name: Unit
+  default: BTC
+  keyname: unit
+  options:
+  - BTC
+  - sats
+  field_type: select
+- name: Locale
+  default: en-GB
+  keyname: locale
+  field_type: string
+  description: For number and date formats, e.g. en-GB or el-GR.
+- name: Time zone
+  default: Europe/Athens
+  keyname: timezone
+  field_type: string
+  description: For dates and the update time, e.g. Europe/Athens.
+- name: mempool API
+  default: https://mempool.space/api
+  keyname: api_base
+  field_type: string
+  description: Point this at your own mempool server to keep the address private.
+data:
+  values:
+    unit: BTC
+    label: Bitcoin
+    locale: en-GB
+    address: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
+    api_base: https://mempool.space/api
+    currency: EUR
+    timezone: Europe/Athens
+interval: 15
+unit: minute
+days: []
+last_day_of_month: false
+start_at: '2026-11-14T10:00:00+00:00'
+exchanges:
+- headers:
+    accept: application/json
+  verb: get
+  body:
+  template: '{{ extension.values.api_base }}/address/{{ extension.values.address }} {{ extension.values.api_base
+    }}/address/{{ extension.values.address }}/txs {{ extension.values.api_base }}/v1/prices {{ extension.values.api_base
+    }}/v1/difficulty-adjustment {{ extension.values.api_base }}/v1/mining/hashrate/3d {{ extension.values.api_base
+    }}/v1/fees/recommended {{ extension.values.api_base }}/mempool https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency={{
+    extension.values.currency | downcase }}&days=30&interval=daily'

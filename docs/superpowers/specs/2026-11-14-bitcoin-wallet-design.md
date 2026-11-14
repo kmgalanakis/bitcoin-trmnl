@@ -70,6 +70,7 @@ Notes from testing on 2026-11-14:
 | `unit` | `BTC` | `BTC` or `sats` |
 | `locale` | `en-GB` | Number and date formatting |
 | `api_base` | `https://mempool.space/api` | mempool API root |
+| `timezone` | `Europe/Athens` | Time zone for dates and the update time. Added during the build. |
 
 The refresh interval is 15 minutes, like the weather extension.
 
