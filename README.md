@@ -1,10 +1,13 @@
 # Bitcoin wallet for Terminus
 
 This repo holds a [Terminus](https://github.com/usetrmnl/terminus) extension that shows a Bitcoin wallet on an e-ink screen.
-It watches one public address and adds general Bitcoin network stats.
+It watches one public address, or a whole wallet through a small helper service, and adds general Bitcoin network stats.
 All data comes from [mempool.space](https://mempool.space/docs/api) and [CoinGecko](https://www.coingecko.com/en/api), which are free and need no API key.
 
 The extension only reads public data. It never asks for a private key or a seed phrase, and it cannot move coins.
+
+Wallets like Ledger Live give you a new receive address for every payment, so one address shows only part of your coins, often none.
+To see the whole wallet, run the helper service in `service/`. See [Whole wallet (xpub)](#whole-wallet-xpub).
 
 The two extension files use Terminus's own export format, so Terminus can import them directly.
 
@@ -13,7 +16,7 @@ The two extension files use Terminus's own export format, so Terminus can import
 | `configuration.yml` | The extension settings, its form fields, the default data and the exchange. |
 | `template.html.liquid` | The Liquid template. |
 
-The `test/` folder, `package.json` and `docs/` are for development. Do not upload them.
+The `service/` folder holds the optional wallet service. The `test/` folder, `package.json` and `docs/` are for development. Do not upload any of them to Terminus.
 
 ## What the screen shows
 
@@ -67,6 +70,40 @@ A script at the bottom of the template draws the screen in the browser that rend
 5. Save the extension, then click **Build**. Terminus renders a screen for each selected model.
 6. Open your device's playlist and add the new screen.
 
+## Whole wallet (xpub)
+
+The wallet service reads your account's extended public key (xpub), finds every address the account has used, and adds up the balance.
+It also nets each transaction against the whole wallet, so change sent back to your own addresses does not show as income.
+It supports one native SegWit account (`bc1q…` addresses), which is the Ledger Live default.
+
+An xpub cannot spend coins. It does reveal every address and transaction in the wallet, so treat it as private: keep it out of git, chats and screenshots.
+The service never logs it and never returns it.
+
+### Find your xpub in Ledger Live
+
+1. Open the account, for example **Bitcoin 1**.
+2. Click the wrench icon, then **Advanced**.
+3. Copy the value that starts with `xpub`.
+
+### Run the service on Portainer
+
+1. In Portainer, open **Stacks** and click **Add stack**.
+2. Choose **Repository**. Use `https://github.com/kmgalanakis/bitcoin-trmnl` as the repository URL and `service/compose.portainer.yaml` as the compose path.
+3. Under **Environment variables**, add `XPUB` with your xpub. The other settings in `service/.env.example` have defaults.
+4. Deploy the stack. Portainer builds the image from the repo and starts `bitcoin-wallet-sidecar` on port 8091.
+5. Open `http://<server>:8091/wallet` in a browser. The first scan takes about half a minute. Until it finishes, the page answers with an error that says so.
+
+The service scans in the background every 10 minutes and spaces its requests, because mempool.space refuses requests that come too fast.
+`/wallet` always answers at once with the latest finished scan. When a scan fails, the last good scan stays in place.
+
+The image deletes embit's bundled compiled libraries, so the service runs pure Python. It works on CPUs without x86-64-v2.
+
+### Point the extension at the service
+
+In Terminus, open the extension. Under **Data**, set `wallet_url` to the service address, for example `http://192.168.1.152:8091/wallet`, then save and build.
+The screen then shows the whole wallet, and the title bar shows how many addresses the wallet has used.
+To go back to one address, set `wallet_url` to an empty string.
+
 ## Settings
 
 | Field | Default | Meaning |
@@ -78,11 +115,13 @@ A script at the bottom of the template draws the screen in the browser that rend
 | `locale` | `en-GB` | Language for numbers and dates, such as `el-GR`. |
 | `timezone` | `Europe/Athens` | Time zone for dates and the update time. |
 | `api_base` | `https://mempool.space/api` | The mempool API to use. |
+| `wallet_url` | empty | The wallet service's `/wallet` address. When set, it replaces `address`. |
 
 ## Privacy
 
 mempool.space sees which address your server asks about, and from which IP address.
-To keep the address private, run your own [mempool](https://github.com/mempool/mempool) server and set `api_base` to its API, for example `http://umbrel.local:3006/api`.
+In wallet mode it sees all your addresses asked about from one IP address, so it can link them.
+To keep the addresses private, run your own [mempool](https://github.com/mempool/mempool) server. Set `api_base` in the extension and `API_BASE` in the service to its API, for example `http://umbrel.local:3006/api`.
 The CoinGecko request does not include your address.
 
 ## Develop
@@ -95,7 +134,15 @@ npm test
 ```
 
 `npm run render` fills the template with the saved responses in `test/fixtures/` and saves screenshots in `test/out/`.
-Set `SCENARIO=empty` to render the screen with no data.
+Set `SCENARIO=empty` to render the screen with no data, or `SCENARIO=wallet` for wallet mode.
+
+The wallet service has its own tests. They use the public BIP84 test vector key, never a real xpub:
+
+```bash
+python3 -m venv service/.venv
+service/.venv/bin/pip install -r service/requirements.txt
+service/.venv/bin/python -m unittest -v service/test_app.py
+```
 If Playwright reports a missing browser, run `npx playwright install chromium`, or point `CHROMIUM` at a Chromium you already have.
 
 ## Keep the copies in sync
