@@ -51,6 +51,11 @@ fields:
   keyname: timezone
   field_type: string
   description: For dates and the update time, e.g. Europe/Athens.
+- name: Wallet service URL
+  default: ''
+  keyname: wallet_url
+  field_type: string
+  description: Optional. The xpub service's /wallet address, e.g. http://192.168.1.152:8091/wallet. When set, the screen shows the whole wallet instead of one address.
 - name: mempool API
   default: https://mempool.space/api
   keyname: api_base
@@ -65,6 +70,7 @@ data:
     api_base: https://mempool.space/api
     currency: EUR
     timezone: Europe/Athens
+    wallet_url: ''
 interval: 15
 unit: minute
 days: []
@@ -75,8 +81,9 @@ exchanges:
     accept: application/json
   verb: get
   body:
-  template: '{{ extension.values.api_base }}/address/{{ extension.values.address }} {{ extension.values.api_base
-    }}/address/{{ extension.values.address }}/txs {{ extension.values.api_base }}/v1/prices {{ extension.values.api_base
+  template: '{% assign wallet = extension.values.wallet_url | default: "" %}{% if wallet != "" %}{{ wallet }} {{ wallet }}{% else %}{{
+    extension.values.api_base }}/address/{{ extension.values.address }} {{ extension.values.api_base }}/address/{{
+    extension.values.address }}/txs{% endif %} {{ extension.values.api_base }}/v1/prices {{ extension.values.api_base
     }}/v1/difficulty-adjustment {{ extension.values.api_base }}/v1/mining/hashrate/3d {{ extension.values.api_base
     }}/v1/fees/recommended {{ extension.values.api_base }}/mempool https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency={{
     extension.values.currency | downcase }}&days=30&interval=daily'

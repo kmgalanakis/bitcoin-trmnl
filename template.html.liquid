@@ -88,7 +88,11 @@ var BTC = (function () {
   function num(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
 
   // ---------- data ----------
+  // A wallet scan from the xpub service has balance_sats and ready-made tx rows.
+  function isWallet(data) { return !!data && num(data.balance_sats) != null && Array.isArray(data.txs); }
+
   function balanceSats(addr) {
+    if (isWallet(addr)) return addr.balance_sats;
     if (!addr || !addr.chain_stats) return null;
     var c = addr.chain_stats, m = addr.mempool_stats || {};
     return (c.funded_txo_sum - c.spent_txo_sum) + ((m.funded_txo_sum || 0) - (m.spent_txo_sum || 0));
@@ -103,6 +107,9 @@ var BTC = (function () {
   }
 
   function recentTxs(txs, address, n) {
+    if (isWallet(txs)) {
+      return txs.txs.slice(0, n).map(function (t) { return { sats: t.sats, time: t.confirmed ? t.time : null, confirmed: !!t.confirmed }; });
+    }
     if (!Array.isArray(txs)) return [];
     return txs.slice(0, n).map(function (tx) { return txNet(tx, address); });
   }
@@ -207,7 +214,7 @@ var BTC = (function () {
         '<span class="btc-fiat">' + (price == null ? '—' : money(sats / SATS * price, currency, locale)) + '</span>';
 
     var txs = recentTxs(s.txs, opts.address, 2);
-    var txHtml = !Array.isArray(s.txs) ? '<div class="btc-empty">—</div>'
+    var txHtml = !Array.isArray(s.txs) && !isWallet(s.txs) ? '<div class="btc-empty">—</div>'
       : !txs.length ? '<div class="btc-empty">No transactions yet</div>'
       : txs.map(function (t) {
           var meta = t.confirmed ? date(t.time * 1000, locale, tz, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Pending';
@@ -242,7 +249,8 @@ var BTC = (function () {
       '</div>';
 
     var address = String(opts.address || '');
-    var short = address.length > 14 ? address.slice(0, 6) + '…' + address.slice(-4) : address;
+    var short = isWallet(s.addr) ? grouped(s.addr.addresses_used, locale) + (s.addr.addresses_used === 1 ? ' address' : ' addresses')
+      : address.length > 14 ? address.slice(0, 6) + '…' + address.slice(-4) : address;
     var updatedAt = s.prices && num(s.prices.time) != null ? clock(s.prices.time * 1000, tz) : '';
     return { updated: updatedAt, address: short };
   }

@@ -118,3 +118,34 @@ test('render marks a pending transaction', () => {
   assert.match(root.innerHTML, /\+0\.0005 BTC/);
   assert.match(root.innerHTML, /pending/i);
 });
+
+test('balanceSats reads a wallet scan', () => {
+  assert.equal(BTC.balanceSats(fixture('wallet')), 123456789);
+});
+
+test('recentTxs uses the wallet scan rows as they are', () => {
+  const txs = BTC.recentTxs(fixture('wallet'), 'ignored', 2);
+  assert.equal(txs.length, 2);
+  assert.equal(txs[0].sats, 50000);
+  assert.equal(txs[0].confirmed, false);
+  assert.equal(txs[1].sats, -31000);
+});
+
+test('render shows a whole wallet', () => {
+  const root = { innerHTML: '' };
+  const w = fixture('wallet');
+  const result = BTC.render(root, { addr: w, txs: w, prices: fixture('prices') }, { ...OPTS, address: '' });
+  const text = root.innerHTML.replace(/<[^>]+>/g, '');
+  assert.match(text, /1\.23456789 BTC/);
+  assert.match(text, /\+0\.0005 BTC/);
+  assert.match(text, /−0\.00031 BTC/);
+  assert.match(text, /Pending/);
+  assert.equal((root.innerHTML.match(/class="btc-tx"/g) || []).length, 2);
+  assert.equal(result.address, '7 addresses');
+});
+
+test('render keeps single-address mode when the wallet URL is not used', () => {
+  const root = { innerHTML: '' };
+  const result = BTC.render(root, { addr: fixture('addr'), txs: fixture('txs') }, OPTS);
+  assert.equal(result.address, '1A1zP1…vfNa');
+});

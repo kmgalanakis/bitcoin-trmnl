@@ -1,5 +1,5 @@
 // Renders template.html.liquid the way Terminus does, using the saved fixtures, and screenshots it.
-// Usage: npm run render   (writes test/out/landscape.png and test/out/portrait.png)
+// Usage: npm run render   (writes test/out/<scenario>-<orientation>.png; SCENARIO=full|empty|wallet)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,7 +42,7 @@ for (const orientation of variants) {
   };
   sources.forEach((name, i) => {
     if (scenario === 'empty') return;
-    context[`source_${i + 1}`] = fixture(name);
+    context[`source_${i + 1}`] = scenario === 'wallet' && i < 2 ? fixture('wallet') : fixture(name);
   });
   const html = page(await engine.parseAndRender(template, context));
   fs.writeFileSync(path.join(out, `${orientation}.html`), html);

@@ -1,0 +1,5 @@
+{"balance_sats": 123456789, "pending_sats": 50000, "tx_count": 5, "addresses_used": 7,
+ "txs": [{"sats": 50000, "time": null, "confirmed": false},
+         {"sats": -31000, "time": 1794000000, "confirmed": true},
+         {"sats": 100000, "time": 1793000000, "confirmed": true}],
+ "updated": 1794650000}
