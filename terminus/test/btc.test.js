@@ -155,5 +155,6 @@ test('render defaults to US dollars when no currency is set', () => {
   const { currency, ...noCurrency } = OPTS;
   BTC.render(root, { addr: fixture('addr'), prices: fixture('prices') }, noCurrency);
   const usd = fixture('prices').USD.toLocaleString('en-GB');
-  assert.match(root.innerHTML, new RegExp('US\\$' + usd + '|\\$' + usd));
+  assert.match(root.innerHTML, new RegExp('>\\$' + usd + '<'));
+  assert.doesNotMatch(root.innerHTML, /US\$/);
 });

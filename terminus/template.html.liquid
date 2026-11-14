@@ -155,8 +155,13 @@ var BTC = (function () {
   }
   function money(v, currency, locale) {
     if (num(v) == null) return '—';
-    try { return new Intl.NumberFormat(locale, { style: 'currency', currency: currency, maximumFractionDigits: 0 }).format(v); }
-    catch (e) { return grouped(v, locale) + ' ' + currency; }
+    // narrowSymbol shows "$" instead of "US$"; older browsers fall back to the locale's symbol.
+    var o = { style: 'currency', currency: currency, maximumFractionDigits: 0 };
+    try { return new Intl.NumberFormat(locale, Object.assign({ currencyDisplay: 'narrowSymbol' }, o)).format(v); }
+    catch (e) {
+      try { return new Intl.NumberFormat(locale, o).format(v); }
+      catch (e2) { return grouped(v, locale) + ' ' + currency; }
+    }
   }
   function signed(v, text) { return (v > 0 ? '+' : v < 0 ? '−' : '') + text; }
   function pct(v) { return num(v) == null ? '—' : signed(v, Math.abs(v).toFixed(1) + '%'); }
