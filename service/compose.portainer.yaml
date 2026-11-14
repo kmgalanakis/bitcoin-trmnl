@@ -1,0 +1,13 @@
+services:
+  bitcoin-wallet:
+    build: .
+    # Build the image from the repo on every deploy. The service has no image name on purpose:
+    # with a name, Portainer's "Re-pull image" tries to pull it from Docker Hub and fails.
+    pull_policy: build
+    container_name: bitcoin-wallet-sidecar
+    restart: unless-stopped
+    # Portainer writes the stack's environment variables to this file.
+    # Add XPUB in the stack editor, never in git.
+    env_file: stack.env
+    ports:
+      - "8091:8091"   # LAN only: do not port-forward this on your router

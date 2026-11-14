@@ -43,7 +43,8 @@ Environment, documented in `service/.env.example`:
 | `XPUB` | (required) | The account's xpub from Ledger Live. zpub also works. |
 | `API_BASE` | `https://mempool.space/api` | The mempool REST API. |
 | `GAP_LIMIT` | `20` | Stop each chain after this many unused addresses in a row. |
-| `CACHE_SECONDS` | `300` | How long to reuse the last scan. |
+| `SCAN_SECONDS` | `600` | Seconds between background scans. |
+| `REQUEST_DELAY` | `0.5` | Seconds between API requests. A 429 answer is retried after 5, 10, 20 and 40 seconds. |
 | `MAX_TXS` | `10` | Transactions in the response. |
 | `PORT` | `8091` | HTTP port. |
 
@@ -58,7 +59,8 @@ Scan: for the receive chain (0) and the change chain (1), derive `m/<chain>/<i>`
 
 - `balance_sats` is confirmed plus mempool funds. `pending_sats` is the mempool part alone.
 - In `txs`, unconfirmed transactions come first, then confirmed ones by `block_time`, newest first. `time` is null when unconfirmed.
-- If a scan fails and a cached scan exists, the service returns the cached scan. Otherwise it returns HTTP 502 with `{"error": "..."}`, and Terminus keeps that source's previous data.
+- Scans run in a background thread, so `/wallet` answers at once with the latest finished scan. This was added during the build: mempool.space answered 429 after a few fast requests, and a spaced-out scan of about 40 addresses takes about 30 seconds, which is longer than Terminus waits.
+- If a scan fails, the last good scan stays in place. Before the first good scan, `/wallet` returns HTTP 502 with `{"error": "..."}`, and Terminus keeps that source's previous data.
 - `GET /health` returns `{"ok": true}`. No other path exposes data.
 
 ## Extension changes

@@ -11,6 +11,7 @@ import logging
 import os
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -107,29 +108,57 @@ def scan(xpub, fetch_json, gap_limit=20, max_txs=10):
     }
 
 
-# ---------- cache ----------
+# ---------- background scan ----------
 class Wallet:
-    def __init__(self, xpub, fetch_json, cache_seconds=300, gap_limit=20, max_txs=10, clock=time.time):
-        self.xpub, self.fetch_json, self.clock = xpub, fetch_json, clock
-        self.cache_seconds, self.gap_limit, self.max_txs = cache_seconds, gap_limit, max_txs
-        self.body, self.at = None, None
+    """Holds the latest scan. refresh() runs a scan; get() only reads, so HTTP answers are instant."""
+
+    def __init__(self, xpub, fetch_json, gap_limit=20, max_txs=10):
+        self.xpub, self.fetch_json = xpub, fetch_json
+        self.gap_limit, self.max_txs = gap_limit, max_txs
+        self.body = None
+        self.error = "The first scan has not finished yet."
         self.lock = threading.Lock()
+
+    def refresh(self):
+        try:
+            body = scan(self.xpub, self.fetch_json, self.gap_limit, self.max_txs)
+        except ValueError as error:
+            body, message = None, str(error)
+            log.error("%s", message)
+        except Exception as error:
+            body, message = None, "Could not read the wallet from the mempool API."
+            log.warning("Scan failed: %s %s", type(error).__name__, getattr(error, "code", ""))
+        with self.lock:
+            if body is not None:
+                self.body, self.error = body, None
+                log.info("Scan finished: %d used addresses.", body["addresses_used"])
+            elif self.body is None:
+                self.error = message
 
     def get(self):
         with self.lock:
-            if self.body is not None and self.clock() - self.at < self.cache_seconds:
+            if self.body is not None:
                 return 200, self.body
+            return 502, {"error": self.error}
+
+    def run_forever(self, every_seconds, sleep=time.sleep):
+        while True:
+            self.refresh()
+            sleep(every_seconds)
+
+
+def polite(fetch_json, delay=0.5, sleep=time.sleep, retries=4):
+    """Spaces requests by `delay` seconds and retries a 429 answer after 5, 10, 20... seconds."""
+    def fetch(path):
+        for attempt in range(retries + 1):
+            sleep(delay)
             try:
-                self.body = scan(self.xpub, self.fetch_json, self.gap_limit, self.max_txs)
-                self.at = self.clock()
-                return 200, self.body
-            except ValueError as error:
-                return 502, {"error": str(error)}
-            except Exception as error:
-                log.warning("Scan failed: %s", type(error).__name__)
-                if self.body is not None:
-                    return 200, self.body
-                return 502, {"error": "Could not read the wallet from the mempool API."}
+                return fetch_json(path)
+            except urllib.error.HTTPError as error:
+                if error.code != 429 or attempt == retries:
+                    raise
+                sleep(5 * 2 ** attempt)
+    return fetch
 
 
 def http_fetcher(api_base, timeout=15):
@@ -171,16 +200,22 @@ def main():
         log.info("Account key loaded.")
     except ValueError as error:
         log.error("%s /wallet will answer 502 until this is fixed.", error)
-    from embit.util import secp256k1
-    log.info("secp256k1 backend: %s", getattr(secp256k1, "__name__", "?"))
+    import sys
+    backend = "compiled" if "embit.util.ctypes_secp256k1" in sys.modules and "embit.util.py_secp256k1" not in sys.modules else "pure Python"
+    log.info("secp256k1 backend: %s", backend)
 
+    fetch = polite(
+        http_fetcher(os.environ.get("API_BASE", "https://mempool.space/api")),
+        delay=float(os.environ.get("REQUEST_DELAY", "0.5")),
+    )
     wallet = Wallet(
         xpub,
-        http_fetcher(os.environ.get("API_BASE", "https://mempool.space/api")),
-        cache_seconds=int(os.environ.get("CACHE_SECONDS", "300")),
+        fetch,
         gap_limit=int(os.environ.get("GAP_LIMIT", "20")),
         max_txs=int(os.environ.get("MAX_TXS", "10")),
     )
+    every = int(os.environ.get("SCAN_SECONDS", "600"))
+    threading.Thread(target=wallet.run_forever, args=(every,), daemon=True).start()
     port = int(os.environ.get("PORT", "8091"))
     log.info("Listening on port %d.", port)
     ThreadingHTTPServer(("0.0.0.0", port), make_handler(wallet)).serve_forever()

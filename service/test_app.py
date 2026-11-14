@@ -99,38 +99,91 @@ class ScanTest(unittest.TestCase):
 
 
 class WalletTest(unittest.TestCase):
+    def test_before_the_first_scan_returns_502(self):
+        status, body = app.Wallet(ZPUB, FakeChain()).get()
+        self.assertEqual(status, 502)
+        self.assertIn("first scan", body["error"])
+
     def test_first_failure_returns_502(self):
         chain = FakeChain()
         chain.fail = True
-        status, body = app.Wallet(ZPUB, chain).get()
+        wallet = app.Wallet(ZPUB, chain)
+        wallet.refresh()
+        status, body = wallet.get()
         self.assertEqual(status, 502)
         self.assertIn("error", body)
 
-    def test_failed_rescan_serves_the_cached_scan(self):
-        now = [1000.0]
+    def test_get_never_scans(self):
         chain = FakeChain()
-        wallet = app.Wallet(ZPUB, chain, cache_seconds=300, clock=lambda: now[0])
-        status, first = wallet.get()
-        self.assertEqual(status, 200)
+        wallet = app.Wallet(ZPUB, chain)
+        wallet.refresh()
         calls = chain.calls
-        self.assertEqual(wallet.get(), (200, first))
-        self.assertEqual(chain.calls, calls, "second call within the cache window must not scan")
-        now[0] += 301
+        self.assertEqual(wallet.get()[0], 200)
+        self.assertEqual(chain.calls, calls)
+
+    def test_failed_rescan_keeps_the_last_scan(self):
+        chain = FakeChain()
+        wallet = app.Wallet(ZPUB, chain)
+        wallet.refresh()
         chain.fail = True
+        wallet.refresh()
         status, body = wallet.get()
         self.assertEqual(status, 200)
         self.assertEqual(body["balance_sats"], 118500)
 
     def test_invalid_xpub_returns_502_without_echoing_it(self):
         secret = "xpubNOTAREALKEY123"
-        status, body = app.Wallet(secret, FakeChain()).get()
+        wallet = app.Wallet(secret, FakeChain())
+        wallet.refresh()
+        status, body = wallet.get()
         self.assertEqual(status, 502)
         self.assertNotIn(secret, repr(body))
 
     def test_missing_xpub_returns_502(self):
-        status, body = app.Wallet("", FakeChain()).get()
+        wallet = app.Wallet("", FakeChain())
+        wallet.refresh()
+        status, body = wallet.get()
         self.assertEqual(status, 502)
         self.assertIn("XPUB", body["error"])
+
+
+class RetryTest(unittest.TestCase):
+    def test_retries_after_429_with_growing_waits(self):
+        import urllib.error
+        attempts, waits = [0], []
+
+        def flaky(path):
+            attempts[0] += 1
+            if attempts[0] < 3:
+                raise urllib.error.HTTPError(path, 429, "Too Many Requests", {}, None)
+            return {"ok": path}
+
+        fetch = app.polite(flaky, delay=0.5, sleep=waits.append)
+        self.assertEqual(fetch("/x"), {"ok": "/x"})
+        self.assertEqual(attempts[0], 3)
+        self.assertEqual(waits, [0.5, 5, 0.5, 10, 0.5])
+
+    def test_gives_up_after_the_last_retry(self):
+        import urllib.error
+
+        def always_429(path):
+            raise urllib.error.HTTPError(path, 429, "Too Many Requests", {}, None)
+
+        fetch = app.polite(always_429, delay=0, sleep=lambda s: None, retries=3)
+        with self.assertRaises(urllib.error.HTTPError):
+            fetch("/x")
+
+    def test_other_errors_are_not_retried(self):
+        import urllib.error
+        attempts = [0]
+
+        def not_found(path):
+            attempts[0] += 1
+            raise urllib.error.HTTPError(path, 400, "Bad Request", {}, None)
+
+        with self.assertRaises(urllib.error.HTTPError):
+            app.polite(not_found, delay=0, sleep=lambda s: None)("/x")
+        self.assertEqual(attempts[0], 1)
 
 
 if __name__ == "__main__":
