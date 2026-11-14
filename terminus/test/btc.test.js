@@ -158,3 +158,28 @@ test('render defaults to US dollars when no currency is set', () => {
   assert.match(root.innerHTML, new RegExp('>\\$' + usd + '<'));
   assert.doesNotMatch(root.innerHTML, /US\$/);
 });
+
+test('chartSvg draws an area, gridlines, markers and dates', () => {
+  const series = fixture('chart').prices;
+  const svg = BTC.chartSvg(series, 600, 220, 'USD', 'en-GB', 'UTC');
+  assert.match(svg, /viewBox="0 0 600 220"/);
+  assert.match(svg, /<path[^>]+class="btc-area"/);
+  assert.equal((svg.match(/class="btc-grid"/g) || []).length, 3);
+  assert.equal((svg.match(/class="btc-mark"/g) || []).length, 2, 'high and low markers');
+  assert.match(svg, /class="btc-now"/);
+  assert.equal((svg.match(/class="btc-date"/g) || []).length, 3);
+  assert.match(svg, /\$74,846/);
+  assert.match(svg, /\$60,972/);
+});
+
+test('chartSvg handles missing or flat data', () => {
+  assert.equal(BTC.chartSvg(undefined, 600, 220, 'USD', 'en-GB', 'UTC'), '');
+  const flat = BTC.chartSvg([[0, 100], [86400000, 100]], 600, 220, 'USD', 'en-GB', 'UTC');
+  assert.doesNotMatch(flat, /NaN/);
+});
+
+test('render shows up to opts.txRows transactions', () => {
+  const root = { innerHTML: '' };
+  BTC.render(root, { addr: fixture('addr'), txs: fixture('txs') }, { ...OPTS, txRows: 4 });
+  assert.equal((root.innerHTML.match(/class="btc-tx"/g) || []).length, 4);
+});

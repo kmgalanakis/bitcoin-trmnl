@@ -21,14 +21,25 @@ engine.registerFilter('jsonify', (v) => JSON.stringify(v ?? null));
 const template = fs.readFileSync(path.join(root, 'template.html.liquid'), 'utf8');
 
 // Terminus layout: app/templates/layouts/extension.html.erb
-const page = (body) => `<!DOCTYPE html><html lang="en"><head>
+const page = (body, screenVars = '') => `<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="https://trmnl.com/css/latest/plugins.css">
-<style>:where(body){align-items:center;display:flex;flex-direction:column;justify-content:center}</style>
+<style>:where(body){align-items:center;display:flex;flex-direction:column;justify-content:center} .screen { ${screenVars} }</style>
 <script src="https://trmnl.com/js/latest/plugins.js"></script>
 </head><body class="trmnl">${body}</body></html>`;
 
-const variants = (process.argv[2] || 'all') === 'all' ? ['landscape', 'portrait'] : [process.argv[2]];
+// Device profiles. "kindle" copies the owner's Terminus model 65 (Kindle PW 7th Gen, custom).
+// Terminus screenshots at the model's pixel size (app/aspects/screens/mold.rb), so the viewport is 1072x1448 at scale 1.
+const PROFILES = {
+  landscape: { viewport: { width: 800, height: 480 }, scale: 1, classes: 'screen screen--og screen--2bit screen--landscape screen--md screen--1x' },
+  portrait: { viewport: { width: 480, height: 800 }, scale: 1, classes: 'screen screen--og screen--2bit screen--portrait screen--md screen--1x' },
+  kindle: {
+    viewport: { width: 1072, height: 1448 }, scale: 1,
+    classes: 'screen screen--amazon_kindle_paperwhite_7th_gen_custom screen--8bit screen--portrait screen--md screen--density-2x',
+    vars: '--screen-w: 670px; --screen-h: 905px; --pixel-ratio: 1.6; --dither-pixel-ratio: 2.0; --device-ui-scale: 1.0; --gap-scale: 1.0;'
+  }
+};
+const variants = (process.argv[2] || 'all') === 'all' ? ['landscape', 'portrait', 'kindle'] : [process.argv[2]];
 const scenario = process.env.SCENARIO || 'full';
 
 // Uses a cached Playwright Chromium when the matching build is not installed: CHROMIUM=/path npm run render
@@ -37,18 +48,18 @@ for (const orientation of variants) {
   const context = {
     extension: {
       values,
-      css_classes: `screen screen--og screen--2bit screen--${orientation} screen--md screen--1x`
+      css_classes: PROFILES[orientation].classes
     }
   };
   sources.forEach((name, i) => {
     if (scenario === 'empty') return;
     context[`source_${i + 1}`] = scenario === 'wallet' && i < 2 ? fixture('wallet') : fixture(name);
   });
-  const html = page(await engine.parseAndRender(template, context));
+  const html = page(await engine.parseAndRender(template, context), PROFILES[orientation].vars);
   fs.writeFileSync(path.join(out, `${orientation}.html`), html);
 
-  const size = orientation === 'portrait' ? { width: 480, height: 800 } : { width: 800, height: 480 };
-  const tab = await browser.newPage({ viewport: size });
+  const profile = PROFILES[orientation];
+  const tab = await browser.newPage({ viewport: profile.viewport, deviceScaleFactor: profile.scale });
   const errors = [];
   tab.on('pageerror', (e) => errors.push(e.message));
   tab.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
