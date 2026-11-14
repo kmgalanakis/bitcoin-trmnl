@@ -53,8 +53,8 @@
       .btc-portrait .btc-stat:nth-child(3n+1) { border-left: 1px solid #9a9a9a; padding-left: 10px; }
       .btc-portrait .btc-stat:nth-child(2n+1) { border-left: 0; padding-left: 0; }
       .btc-portrait .btc-bottom { flex-direction: column; gap: 14px; }
-      .btc-portrait .btc-chart { flex: 0 0 40%; min-height: 150px; }
-      .btc-portrait .btc-txs { flex: 1 1 auto; gap: 10px; padding-left: 0; border-left: 0; border-top: 2px solid black; padding-top: 12px; }
+      .btc-portrait .btc-chart { flex: 1 1 auto; min-height: 150px; }
+      .btc-portrait .btc-txs { flex: 0 0 auto; gap: 10px; padding-left: 0; border-left: 0; border-top: 2px solid black; padding-top: 12px; }
     </style>
 
     <div class="layout layout--col layout--top layout--left" id="btc-root">
@@ -277,13 +277,20 @@ var BTC = (function () {
       '</div>';
 
     // Redraw the chart at its real pixel size so dots stay round and lines stay crisp.
+    // Redraw again once fonts and the page have loaded, because they can change the chart's size.
     var plot = root.querySelector && root.querySelector('.btc-chart__plot');
-    if (plot && plot.getBoundingClientRect) {
+    var fit = function () {
+      if (!plot || !plot.getBoundingClientRect) return;
       var box = plot.getBoundingClientRect();
       if (box.width > 80 && box.height > 60) {
         var sized = chartSvg(series, Math.round(box.width), Math.round(box.height), currency, locale, tz);
         if (sized) plot.innerHTML = sized;
       }
+    };
+    fit();
+    if (plot && typeof document !== 'undefined') {
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+      if (typeof window !== 'undefined') window.addEventListener('load', fit);
     }
 
     var address = String(opts.address || '');
