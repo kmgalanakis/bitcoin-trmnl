@@ -183,3 +183,11 @@ test('render shows up to opts.txRows transactions', () => {
   BTC.render(root, { addr: fixture('addr'), txs: fixture('txs') }, { ...OPTS, txRows: 4 });
   assert.equal((root.innerHTML.match(/class="btc-tx"/g) || []).length, 4);
 });
+
+test('template CSS avoids properties that Terminus strips', () => {
+  // Terminus sanitizes templates with the sanitize gem's RELAXED config (sanitize 7.0.2), which drops these.
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'template.html.liquid'), 'utf8').split('</style>')[0];
+  for (const property of ['row-gap', 'column-gap', 'grid-row-gap', 'grid-column-gap', 'inset']) {
+    assert.doesNotMatch(css, new RegExp('[\\s;{]' + property + '\\s*:'), property + ' is stripped by Terminus; use gap instead');
+  }
+});
